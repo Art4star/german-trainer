@@ -10,11 +10,26 @@
   <header class="app-header">
     <h1>Deutsch Trainer</h1>
     <p class="subtitle">Artikel · Präpositionen · Pronomen — 3 вірних поспіль = вивчено</p>
+    <div id="userBar" class="user-bar" hidden>
+      <span>Користувач: <strong id="userBarName"></strong></span>
+      <button id="switchUserBtn" class="linklike">змінити користувача</button>
+    </div>
   </header>
 
   <main class="app-main">
 
-    <section id="screen-start" class="screen">
+    <section id="screen-login" class="screen">
+      <div class="panel">
+        <div id="loginExisting" class="login-existing"></div>
+        <div class="field">
+          <label class="field-label" for="loginNameInput">Твоє ім'я</label>
+          <input id="loginNameInput" type="text" autocomplete="off" placeholder="Наприклад, Artur" />
+        </div>
+      </div>
+      <button id="loginBtn" class="btn primary big">Почати навчання</button>
+    </section>
+
+    <section id="screen-select" class="screen" hidden>
       <div class="stats-row">
         <div class="stat"><strong id="struggleCount">0</strong><span>проблемні</span></div>
         <div class="stat"><strong id="recheckCount">0</strong><span>на перевірку</span></div>

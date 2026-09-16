@@ -5,11 +5,13 @@
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
 
   var DB_KEY = 'deutsch-trainer:db:v2';
-  var USER_ID = 'u_local';
+  var CURRENT_USER_KEY = 'deutsch-trainer:currentUserId';
   var MAX_ATTEMPTS = 5000;       // обмеження на розмір логу спроб у localStorage
   var LEARNED_STREAK = 3;        // скільки вірних поспіль треба, щоб картка стала "вивченою"
   var RECHECK_START_DAYS = 30;   // перша повторна перевірка вивченої картки — через N днів
   var RECHECK_MAX_DAYS = 180;    // стеля для інтервалу повторних перевірок
+
+  var USER_ID = null; // встановлюється після логіну
 
   // ---------- Дата/час helpers ----------
   function todayStr() {
@@ -37,9 +39,34 @@
   }
 
   var db = loadDb();
-  if (!db.users[USER_ID]) {
-    db.users[USER_ID] = { id: USER_ID, name: 'Artur', createdAt: nowIso() };
+
+  function slugify(name) {
+    var s = name.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '');
+    return s || 'user';
+  }
+
+  function listUsers() {
+    return Object.keys(db.users)
+      .map(function (id) { return db.users[id]; })
+      .sort(function (a, b) { return (b.lastLoginAt || b.createdAt).localeCompare(a.lastLoginAt || a.createdAt); });
+  }
+
+  function loginAs(name) {
+    var id = slugify(name);
+    if (!db.users[id]) {
+      db.users[id] = { id: id, name: name.trim(), createdAt: nowIso(), lastLoginAt: nowIso() };
+    } else {
+      db.users[id].lastLoginAt = nowIso();
+      db.users[id].name = name.trim();
+    }
     saveDb();
+    USER_ID = id;
+    localStorage.setItem(CURRENT_USER_KEY, id);
+  }
+
+  function logout() {
+    USER_ID = null;
+    localStorage.removeItem(CURRENT_USER_KEY);
   }
 
   function progressKey(exerciseId) {
@@ -122,9 +149,21 @@
     rec.reviewed = reviewed; rec.correct = correct; rec.wrong = wrong;
     saveDb();
   }
+  function userSessions() {
+    return db.sessions.filter(function (s) { return s.userId === USER_ID; });
+  }
 
   // ---------- DOM ----------
   var el = {
+    userBar: document.getElementById('userBar'),
+    userBarName: document.getElementById('userBarName'),
+    switchUserBtn: document.getElementById('switchUserBtn'),
+
+    screenLogin: document.getElementById('screen-login'),
+    loginExisting: document.getElementById('loginExisting'),
+    loginNameInput: document.getElementById('loginNameInput'),
+    loginBtn: document.getElementById('loginBtn'),
+
     struggleCount: document.getElementById('struggleCount'),
     recheckCount: document.getElementById('recheckCount'),
     newCount: document.getElementById('newCount'),
@@ -137,10 +176,12 @@
     startBtn: document.getElementById('startBtn'),
     historyBtn: document.getElementById('historyBtn'),
     resetBtn: document.getElementById('resetBtn'),
-    screenStart: document.getElementById('screen-start'),
+
+    screenSelect: document.getElementById('screen-select'),
     screenQuiz: document.getElementById('screen-quiz'),
     screenSummary: document.getElementById('screen-summary'),
     screenHistory: document.getElementById('screen-history'),
+
     progressText: document.getElementById('progressText'),
     progressBar: document.getElementById('progressBar'),
     topicLabel: document.getElementById('topicLabel'),
@@ -165,12 +206,45 @@
   var session = null; // { queue, pointer, reviewed, correct, wrong, mode, sessionId, record }
 
   function showScreen(name) {
-    el.screenStart.hidden = name !== 'start';
+    el.screenLogin.hidden = name !== 'login';
+    el.screenSelect.hidden = name !== 'select';
     el.screenQuiz.hidden = name !== 'quiz';
     el.screenSummary.hidden = name !== 'summary';
     el.screenHistory.hidden = name !== 'history';
+    el.userBar.hidden = name === 'login';
   }
 
+  // ---------- Логін ----------
+  function renderLogin() {
+    var users = listUsers();
+    el.loginExisting.innerHTML = '';
+    if (users.length) {
+      var label = document.createElement('div');
+      label.className = 'field-label';
+      label.textContent = 'Продовжити як:';
+      el.loginExisting.appendChild(label);
+      users.forEach(function (u) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn profile-btn';
+        btn.textContent = u.name;
+        btn.addEventListener('click', function () { enterAsUser(u.name); });
+        el.loginExisting.appendChild(btn);
+      });
+    }
+    el.loginNameInput.value = '';
+  }
+
+  function enterAsUser(name) {
+    if (!name || !name.trim()) return;
+    loginAs(name);
+    el.userBarName.textContent = db.users[USER_ID].name;
+    buildCatChecks();
+    refreshStats();
+    showScreen('select');
+  }
+
+  // ---------- Вибір рівня і теми ----------
   function buildCatChecks() {
     el.catChecks.innerHTML = '';
     CATS.forEach(function (cat) {
@@ -248,6 +322,7 @@
     return arr;
   }
 
+  // ---------- Вивчення ----------
   function startSession() {
     var exs = filteredExercises();
     var buckets = classify(exs);
@@ -357,6 +432,7 @@
     renderCurrent();
   }
 
+  // ---------- Результат ----------
   function endSession() {
     var accuracy = session.reviewed ? Math.round((session.correct / session.reviewed) * 100) : 0;
     finalizeSessionRecord(session.record, session.reviewed, session.correct, session.wrong);
@@ -375,8 +451,9 @@
       var p = getProgress(ex.id);
       return p && p.state === 'learned';
     }).length;
+    var sessions = userSessions();
     el.historySummary.textContent =
-      'Вивчено ' + learnedTotal + ' із ' + window.EXERCISES.length + ' вправ · Проведено сесій: ' + db.sessions.length;
+      'Вивчено ' + learnedTotal + ' із ' + window.EXERCISES.length + ' вправ · Проведено сесій: ' + sessions.length;
 
     var withProgress = window.EXERCISES
       .map(function (ex) { var p = getProgress(ex.id); return p ? { ex: ex, p: p } : null; })
@@ -394,9 +471,9 @@
         }).join('')
       : '<p class="muted">Проблемних тем поки немає.</p>';
 
-    var sessions = db.sessions.slice().reverse().slice(0, 30);
-    if (sessions.length) {
-      var rows = sessions.map(function (s) {
+    var recent = sessions.slice().reverse().slice(0, 30);
+    if (recent.length) {
+      var rows = recent.map(function (s) {
         var d = new Date(s.startedAt);
         var dateStr = d.toLocaleDateString('uk-UA') + ' ' + d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
         var acc = s.reviewed ? Math.round((s.correct / s.reviewed) * 100) : 0;
@@ -411,6 +488,16 @@
   }
 
   // ---------- Events ----------
+  el.loginBtn.addEventListener('click', function () { enterAsUser(el.loginNameInput.value); });
+  el.loginNameInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); enterAsUser(el.loginNameInput.value); }
+  });
+  el.switchUserBtn.addEventListener('click', function () {
+    logout();
+    renderLogin();
+    showScreen('login');
+  });
+
   el.startBtn.addEventListener('click', startSession);
   el.levelSelect.addEventListener('change', refreshStats);
   el.newPerSession.addEventListener('change', refreshStats);
@@ -430,7 +517,7 @@
   el.translationToggle.addEventListener('click', function () {
     el.translationText.hidden = !el.translationText.hidden;
   });
-  el.backToStart.addEventListener('click', function () { showScreen('start'); refreshStats(); });
+  el.backToStart.addEventListener('click', function () { showScreen('select'); refreshStats(); });
   el.quitBtn.addEventListener('click', function () {
     if (confirm('Завершити сесію достроково? Прогрес по вже відповіданих картках збережеться.')) {
       endSession();
@@ -440,19 +527,29 @@
     renderHistory();
     showScreen('history');
   });
-  el.historyBack.addEventListener('click', function () { showScreen('start'); refreshStats(); });
+  el.historyBack.addEventListener('click', function () { showScreen('select'); refreshStats(); });
   el.resetBtn.addEventListener('click', function () {
-    if (confirm('Скинути весь прогрес (вивчені картки, лічильники, історію сесій)? Цю дію не можна скасувати.')) {
-      db.progress = {};
-      db.attempts = [];
-      db.sessions = [];
+    if (confirm('Скинути весь прогрес (вивчені картки, лічильники, історію сесій) для цього користувача? Цю дію не можна скасувати.')) {
+      Object.keys(db.progress).forEach(function (key) {
+        if (db.progress[key].userId === USER_ID) delete db.progress[key];
+      });
+      db.attempts = db.attempts.filter(function (a) { return a.userId !== USER_ID; });
+      db.sessions = db.sessions.filter(function (s) { return s.userId !== USER_ID; });
       saveDb();
       refreshStats();
     }
   });
 
   // ---------- Init ----------
-  buildCatChecks();
-  refreshStats();
-  showScreen('start');
+  renderLogin();
+  var savedUserId = localStorage.getItem(CURRENT_USER_KEY);
+  if (savedUserId && db.users[savedUserId]) {
+    USER_ID = savedUserId;
+    el.userBarName.textContent = db.users[USER_ID].name;
+    buildCatChecks();
+    refreshStats();
+    showScreen('select');
+  } else {
+    showScreen('login');
+  }
 })();
