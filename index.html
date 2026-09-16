@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deutsch Trainer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Deutsch Trainer</h1>
+    <p class="subtitle">Artikel · Präpositionen · Pronomen — 3 вірних поспіль = вивчено</p>
+  </header>
+
+  <main class="app-main">
+
+    <section id="screen-start" class="screen">
+      <div class="stats-row">
+        <div class="stat"><strong id="struggleCount">0</strong><span>проблемні</span></div>
+        <div class="stat"><strong id="recheckCount">0</strong><span>на перевірку</span></div>
+        <div class="stat"><strong id="newCount">0</strong><span>нові</span></div>
+        <div class="stat"><strong id="learnedCount">0</strong><span>вивчено</span></div>
+        <div class="stat"><strong id="totalCount">0</strong><span>всього у виборі</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="field">
+          <span class="field-label">Категорії</span>
+          <div id="catChecks" class="checks"></div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="levelSelect">Рівень</label>
+          <select id="levelSelect">
+            <option value="all">Усі рівні</option>
+            <option value="A2">A2</option>
+            <option value="B1">B1</option>
+            <option value="B2">B2</option>
+            <option value="C1">C1</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="newPerSession">Нових карток за сесію</label>
+          <input id="newPerSession" type="number" min="0" max="50" value="15" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="maxSessionSize">Максимум карток за сесію (0 = без обмежень)</label>
+          <input id="maxSessionSize" type="number" min="0" max="200" value="40" />
+        </div>
+      </div>
+
+      <button id="startBtn" class="btn primary big">Почати сесію</button>
+      <button id="historyBtn" class="btn ghost small">Історія та статистика</button>
+      <button id="resetBtn" class="btn ghost small">Скинути весь прогрес</button>
+    </section>
+
+    <section id="screen-quiz" class="screen" hidden>
+      <div class="progress-wrap">
+        <div class="progress-text" id="progressText"></div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="topic-label" id="topicLabel"></div>
+        <div class="sentence">
+          <span id="sentenceBefore"></span>
+          <input id="answerInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <span id="sentenceAfter"></span>
+        </div>
+
+        <button id="translationToggle" class="btn ghost small">Показати переклад</button>
+        <div id="translationText" class="translation" hidden></div>
+
+        <div id="feedback" class="feedback" hidden></div>
+        <div id="feedbackNote" class="feedback-note"></div>
+
+        <button id="checkBtn" class="btn primary big">Перевірити</button>
+      </div>
+
+      <button id="quitBtn" class="btn ghost small">Завершити сесію</button>
+    </section>
+
+    <section id="screen-summary" class="screen" hidden>
+      <h2>Сесію завершено</h2>
+      <div id="summaryStats" class="summary-stats"></div>
+      <button id="backToStart" class="btn primary big">До початку</button>
+    </section>
+
+    <section id="screen-history" class="screen" hidden>
+      <h2>Історія та статистика</h2>
+      <p id="historySummary" class="muted"></p>
+
+      <div class="panel">
+        <span class="field-label">Проблемні теми (найбільше помилок)</span>
+        <div id="historyProblems"></div>
+      </div>
+
+      <div class="panel">
+        <span class="field-label">Останні сесії</span>
+        <div id="historySessions"></div>
+      </div>
+
+      <button id="historyBack" class="btn primary big">До початку</button>
+    </section>
+
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
