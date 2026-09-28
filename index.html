@@ -27,14 +27,12 @@
   <main class="app-main">
 
     <section id="screen-login" class="screen">
-      <div class="panel">
-        <div id="loginExisting" class="login-existing"></div>
-        <div class="field">
-          <label class="field-label" for="loginNameInput">Твоє ім'я</label>
-          <input id="loginNameInput" type="text" autocomplete="off" placeholder="Наприклад, Artur" />
-        </div>
+      <div class="panel login-panel">
+        <p class="muted">Увійди, щоб прогрес зберігався за тобою, а не за пристроєм.</p>
+        <div id="googleSignInBtn"></div>
+        <button id="appleSignInBtn" class="btn apple-btn"> Увійти через Apple</button>
+        <p id="loginError" class="muted login-error" hidden></p>
       </div>
-      <button id="loginBtn" class="btn primary big">Почати навчання</button>
     </section>
 
     <section id="screen-select" class="screen" hidden>
@@ -126,6 +124,9 @@
     </section>
 
   </main>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
 
   <script src="data.js"></script>
   <script src="app.js"></script>
