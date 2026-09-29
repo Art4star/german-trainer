@@ -5,9 +5,9 @@
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
   var LEARNED_STREAK = 3; // лише для тексту в UI — реальний підрахунок робить сервер
 
-  // TODO: підставити реальні значення після налаштування Render/Google Cloud/Apple Developer
+  // TODO: підставити реальні значення після налаштування Render/Apple Developer
   var API_BASE = 'https://german-trainer-api.onrender.com';
-  var GOOGLE_CLIENT_ID = 'REPLACE_WITH_GOOGLE_CLIENT_ID';
+  var GOOGLE_CLIENT_ID = '385497440761-7megs57d45ftrvgcik27j4md2c3lbovh.apps.googleusercontent.com';
   var APPLE_CLIENT_ID = 'REPLACE_WITH_APPLE_SERVICES_ID';
 
   var TOKEN_KEY = 'deutsch-trainer:apiToken';
