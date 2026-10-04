@@ -63,11 +63,15 @@
     emailForm: document.getElementById('emailForm'),
     emailInput: document.getElementById('emailInput'),
     sendCodeBtn: document.getElementById('sendCodeBtn'),
+    loginError: document.getElementById('loginError'),
+
+    screenCode: document.getElementById('screen-code'),
     codeForm: document.getElementById('codeForm'),
     codeHint: document.getElementById('codeHint'),
     codeInput: document.getElementById('codeInput'),
     verifyCodeBtn: document.getElementById('verifyCodeBtn'),
-    loginError: document.getElementById('loginError'),
+    codeError: document.getElementById('codeError'),
+    changeEmailBtn: document.getElementById('changeEmailBtn'),
 
     struggleCount: document.getElementById('struggleCount'),
     recheckCount: document.getElementById('recheckCount'),
@@ -112,11 +116,12 @@
 
   function showScreen(name) {
     el.screenLogin.hidden = name !== 'login';
+    el.screenCode.hidden = name !== 'code';
     el.screenSelect.hidden = name !== 'select';
     el.screenQuiz.hidden = name !== 'quiz';
     el.screenSummary.hidden = name !== 'summary';
     el.screenHistory.hidden = name !== 'history';
-    el.userBar.hidden = name === 'login';
+    el.userBar.hidden = name === 'login' || name === 'code';
   }
 
   function showLoginError(msg) {
@@ -170,13 +175,13 @@
 
   var pendingEmail = '';
 
-  function showCodeStep(email) {
+  function showCodeScreen(email) {
     pendingEmail = email;
-    el.emailForm.hidden = true;
-    el.codeForm.hidden = false;
     el.codeHint.textContent = T.codeHint.replace('{email}', email);
     el.codeInput.placeholder = T.codePlaceholder;
     el.codeInput.value = '';
+    el.codeError.hidden = true;
+    showScreen('code');
     el.codeInput.focus();
   }
 
@@ -186,7 +191,7 @@
     el.loginError.hidden = true;
     el.sendCodeBtn.disabled = true;
     apiFetch('/auth/email/request', { method: 'POST', body: JSON.stringify({ email: email }) })
-      .then(function () { showCodeStep(email); })
+      .then(function () { showCodeScreen(email); })
       .catch(function (err) {
         if (err.status === 429) showLoginError(T.wait);
         else if (err.status === 400) showLoginError(T.badEmail);
@@ -197,7 +202,7 @@
 
   el.codeForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    el.loginError.hidden = true;
+    el.codeError.hidden = true;
     el.verifyCodeBtn.disabled = true;
     apiFetch('/auth/email/verify', {
       method: 'POST',
@@ -205,8 +210,14 @@
     }).then(function (data) {
       afterAuthSuccess(data.token, data.user);
     }).catch(function (err) {
-      showLoginError(err.status === 401 ? T.badCode : T.error);
+      el.codeError.hidden = false;
+      el.codeError.textContent = err.status === 401 ? T.badCode : T.error;
     }).then(function () { el.verifyCodeBtn.disabled = false; });
+  });
+
+  el.changeEmailBtn.addEventListener('click', function () {
+    el.emailInput.value = pendingEmail;
+    showScreen('login');
   });
 
   el.orText.textContent = T.or;
