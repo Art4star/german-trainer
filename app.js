@@ -5,16 +5,19 @@
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
   var LEARNED_STREAK = 3; // лише для тексту в UI — реальний підрахунок робить сервер
 
-  // TODO: підставити реальні значення після налаштування Render/Apple Developer
   var API_BASE = 'https://german-trainer-api.onrender.com';
   var GOOGLE_CLIENT_ID = '385497440761-7megs57d45ftrvgcik27j4md2c3lbovh.apps.googleusercontent.com';
-  var APPLE_CLIENT_ID = 'REPLACE_WITH_APPLE_SERVICES_ID';
 
   var SUPPORTED_LANGS = ['uk', 'de', 'en'];
   var UI_LANG = (SUPPORTED_LANGS.indexOf((navigator.language || '').slice(0, 2).toLowerCase()) >= 0)
     ? navigator.language.slice(0, 2).toLowerCase()
     : 'en';
-  var APPLE_BUTTON_TEXT = { uk: 'Увійти через Apple', de: 'Mit Apple anmelden', en: 'Sign in with Apple' };
+  var LOGIN_TEXT = {
+    uk: { or: 'або', send: 'Надіслати код', verify: 'Увійти', codeHint: 'Ми надіслали 6-значний код на {email}. Він дійсний 10 хвилин.', codePlaceholder: '6 цифр', error: 'Не вдалося увійти. Перевір дані й спробуй ще раз.', wait: 'Код уже надіслано. Зачекай хвилину перед повторним запитом.', badCode: 'Невірний або прострочений код. Запроси новий.', badEmail: 'Перевір адресу електронної пошти.' },
+    de: { or: 'oder', send: 'Code senden', verify: 'Anmelden', codeHint: 'Wir haben einen 6-stelligen Code an {email} gesendet. Er ist 10 Minuten gültig.', codePlaceholder: '6 Ziffern', error: 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.', wait: 'Der Code wurde bereits gesendet. Bitte warte eine Minute.', badCode: 'Falscher oder abgelaufener Code. Fordere einen neuen an.', badEmail: 'Bitte prüfe die E-Mail-Adresse.' },
+    en: { or: 'or', send: 'Send code', verify: 'Sign in', codeHint: 'We sent a 6-digit code to {email}. It is valid for 10 minutes.', codePlaceholder: '6 digits', error: 'Sign-in failed. Please check your details and try again.', wait: 'A code was already sent. Please wait a minute before requesting another.', badCode: 'Wrong or expired code. Request a new one.', badEmail: 'Please check the email address.' }
+  };
+  var T = LOGIN_TEXT[UI_LANG];
 
   var TOKEN_KEY = 'deutsch-trainer:apiToken';
   var USER_KEY = 'deutsch-trainer:apiUser';
@@ -56,7 +59,14 @@
 
     screenLogin: document.getElementById('screen-login'),
     googleSignInBtn: document.getElementById('googleSignInBtn'),
-    appleSignInBtn: document.getElementById('appleSignInBtn'),
+    orText: document.getElementById('orText'),
+    emailForm: document.getElementById('emailForm'),
+    emailInput: document.getElementById('emailInput'),
+    sendCodeBtn: document.getElementById('sendCodeBtn'),
+    codeForm: document.getElementById('codeForm'),
+    codeHint: document.getElementById('codeHint'),
+    codeInput: document.getElementById('codeInput'),
+    verifyCodeBtn: document.getElementById('verifyCodeBtn'),
     loginError: document.getElementById('loginError'),
 
     struggleCount: document.getElementById('struggleCount'),
@@ -158,35 +168,50 @@
     google.accounts.id.renderButton(el.googleSignInBtn, { theme: 'outline', size: 'large', width: 280, locale: UI_LANG });
   }
 
-  function initAppleSignIn() {
-    if (!window.AppleID || APPLE_CLIENT_ID.indexOf('REPLACE_WITH') === 0) return;
-    AppleID.auth.init({
-      clientId: APPLE_CLIENT_ID,
-      scope: 'name email',
-      redirectURI: window.location.origin + window.location.pathname,
-      usePopup: true
-    });
+  var pendingEmail = '';
+
+  function showCodeStep(email) {
+    pendingEmail = email;
+    el.emailForm.hidden = true;
+    el.codeForm.hidden = false;
+    el.codeHint.textContent = T.codeHint.replace('{email}', email);
+    el.codeInput.placeholder = T.codePlaceholder;
+    el.codeInput.value = '';
+    el.codeInput.focus();
   }
 
-  el.appleSignInBtn.addEventListener('click', function () {
-    if (!window.AppleID) { showLoginError('Apple Sign-In ще не готовий, спробуй за мить.'); return; }
-    AppleID.auth.signIn().then(function (res) {
-      var name;
-      if (res.user && res.user.name) {
-        name = (res.user.name.firstName || '') + ' ' + (res.user.name.lastName || '');
-        name = name.trim();
-      }
-      return apiFetch('/auth/apple', {
-        method: 'POST',
-        body: JSON.stringify({ idToken: res.authorization.id_token, name: name })
-      });
+  el.emailForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = el.emailInput.value.trim();
+    el.loginError.hidden = true;
+    el.sendCodeBtn.disabled = true;
+    apiFetch('/auth/email/request', { method: 'POST', body: JSON.stringify({ email: email }) })
+      .then(function () { showCodeStep(email); })
+      .catch(function (err) {
+        if (err.status === 429) showLoginError(T.wait);
+        else if (err.status === 400) showLoginError(T.badEmail);
+        else showLoginError(T.error);
+      })
+      .then(function () { el.sendCodeBtn.disabled = false; });
+  });
+
+  el.codeForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    el.loginError.hidden = true;
+    el.verifyCodeBtn.disabled = true;
+    apiFetch('/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email: pendingEmail, code: el.codeInput.value.trim() })
     }).then(function (data) {
       afterAuthSuccess(data.token, data.user);
     }).catch(function (err) {
-      if (err && err.error === 'popup_closed_by_user') return;
-      showLoginError('Не вдалося увійти через Apple.');
-    });
+      showLoginError(err.status === 401 ? T.badCode : T.error);
+    }).then(function () { el.verifyCodeBtn.disabled = false; });
   });
+
+  el.orText.textContent = T.or;
+  el.sendCodeBtn.textContent = T.send;
+  el.verifyCodeBtn.textContent = T.verify;
 
   el.switchUserBtn.addEventListener('click', logout);
 
@@ -516,13 +541,8 @@
   });
 
   // ---------- Init ----------
-  el.appleSignInBtn.textContent = APPLE_BUTTON_TEXT[UI_LANG];
-
-  // SDK Google/Apple підключаються асинхронно — ініціалізуємо після події load
-  window.addEventListener('load', function () {
-    initGoogleSignIn();
-    initAppleSignIn();
-  });
+  // SDK Google підключається асинхронно — ініціалізуємо після події load
+  window.addEventListener('load', initGoogleSignIn);
 
   var savedUser = null;
   try { savedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { /* ignore */ }

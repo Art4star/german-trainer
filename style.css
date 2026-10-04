@@ -65,17 +65,12 @@ body {
 .login-panel { align-items: center; text-align: center; gap: 14px; }
 .login-error { color: var(--bad-text); }
 
-.apple-btn {
-  background: #000;
-  color: #fff;
-  border-color: #000;
-  width: 100%;
-  max-width: 280px;
-  font-weight: 600;
-}
-@media (prefers-color-scheme: dark) {
-  .apple-btn { background: #fff; color: #000; border-color: #fff; }
-}
+.divider { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px; color: var(--muted); font-size: 0.85rem; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.email-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px; }
+.email-form input { width: 100%; text-align: center; font-size: 1rem; }
+.email-form input#codeInput { letter-spacing: 0.3em; font-size: 1.2rem; }
 
 .app-main { max-width: 560px; margin: 0 auto; }
 .screen { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }

@@ -30,7 +30,16 @@
       <div class="panel login-panel">
         <p class="muted">Увійди, щоб прогрес зберігався за тобою, а не за пристроєм.</p>
         <div id="googleSignInBtn"></div>
-        <button id="appleSignInBtn" class="btn apple-btn"> Увійти через Apple</button>
+        <div class="divider"><span id="orText">або</span></div>
+        <form id="emailForm" class="email-form">
+          <input id="emailInput" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required />
+          <button id="sendCodeBtn" type="submit" class="btn primary">Надіслати код</button>
+        </form>
+        <form id="codeForm" class="email-form" hidden>
+          <p id="codeHint" class="muted"></p>
+          <input id="codeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 цифр" required />
+          <button id="verifyCodeBtn" type="submit" class="btn primary">Увійти</button>
+        </form>
         <p id="loginError" class="muted login-error" hidden></p>
       </div>
     </section>
