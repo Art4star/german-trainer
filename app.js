@@ -206,10 +206,11 @@
     apiFetch('/api/progress').then(function (data) {
       progressCache = {};
       (data.progress || []).forEach(function (p) { progressCache[p.exercise_id] = p; });
+    }).then(function () {
       buildTopics();
       refreshStats();
       showScreen('select');
-    }).catch(function () {
+    }, function () {
       showLoginError('Не вдалося завантажити прогрес із сервера. Перевір з’єднання й спробуй увійти ще раз.');
       logout();
     });
