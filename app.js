@@ -510,8 +510,11 @@
   });
 
   // ---------- Init ----------
-  initGoogleSignIn();
-  initAppleSignIn();
+  // SDK Google/Apple підключаються асинхронно — ініціалізуємо після події load
+  window.addEventListener('load', function () {
+    initGoogleSignIn();
+    initAppleSignIn();
+  });
 
   var savedUser = null;
   try { savedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { /* ignore */ }
