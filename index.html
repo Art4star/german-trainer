@@ -55,9 +55,19 @@
     </section>
 
     <section id="screen-select" class="screen" hidden>
-      <p id="learnedLine" class="learned-line"></p>
+      <div class="level-card">
+        <div class="level-head">
+          <span id="levelName" class="level-name"></span>
+          <span id="learnedCount" class="level-count"></span>
+        </div>
+        <div class="progress-track"><div id="levelBar" class="progress-bar"></div></div>
+        <p id="levelNext" class="muted"></p>
+      </div>
       <button id="startBtn" class="btn primary big" type="button">Почати</button>
-      <button id="topicsBtn" class="btn ghost" type="button">Теми та рівень: <span id="topicSummary"></span></button>
+      <button id="topicsBtn" class="topics-card" type="button">
+        <span class="topics-label">Теми та рівень</span>
+        <span class="topics-value"><span id="topicSummary"></span><span class="chevron" aria-hidden="true"></span></span>
+      </button>
     </section>
 
     <section id="screen-topics" class="screen" hidden>
@@ -84,10 +94,14 @@
           <span id="sentenceAfter"></span>
         </div>
 
-        <button id="translationToggle" class="btn ghost small" type="button">Переклад</button>
+        <button id="translationToggle" class="btn pill-outline" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
+          Переклад
+        </button>
         <div id="translationText" class="translation" hidden></div>
 
         <div id="feedback" class="feedback" hidden></div>
+        <div id="streakDots" class="streak-dots" hidden><span></span><span></span><span></span></div>
         <div id="feedbackNote" class="feedback-note"></div>
 
         <button id="checkBtn" class="btn primary big" type="button">Перевірити</button>
@@ -98,6 +112,7 @@
 
     <section id="screen-summary" class="screen" hidden>
       <h2>Сесію завершено</h2>
+      <p id="summaryPraise" class="muted"></p>
       <div id="summaryStats" class="summary-stats"></div>
       <button id="backToStart" class="btn primary big" type="button">До початку</button>
     </section>

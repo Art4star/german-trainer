@@ -145,7 +145,75 @@ body {
 h2 { font-family: var(--font-display); font-size: 34px; font-weight: 600; text-align: center; letter-spacing: 0; margin: 0; }
 
 /* ---------- Головний екран ---------- */
-.learned-line { margin: 8px 0 0; text-align: center; font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: 0; }
+.level-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.level-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.level-name { font-family: var(--font-display); font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: 0; }
+.level-count { font-size: 15px; letter-spacing: -0.224px; color: var(--muted); white-space: nowrap; }
+.level-card .progress-track { height: 6px; }
+.level-card .muted { text-align: left; }
+
+.topics-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: -0.374px;
+  text-align: left;
+  cursor: pointer;
+}
+.topics-card:focus-visible { outline: 2px solid var(--accent-focus); outline-offset: 2px; }
+.topics-label { font-size: 17px; letter-spacing: -0.374px; }
+.topics-value { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; letter-spacing: -0.224px; }
+.chevron {
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--muted);
+  border-right: 2px solid var(--muted);
+  transform: rotate(45deg);
+  margin-right: 4px;
+}
+
+.pill-outline {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: 15px;
+  letter-spacing: -0.224px;
+  padding: 8px 18px;
+}
+.pill-outline:hover { background: var(--bg); }
+
+.streak-dots { display: flex; justify-content: center; gap: 10px; }
+.streak-dots[hidden] { display: none; }
+.streak-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--hairline);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.streak-dots span.on { background: var(--accent); transform: scale(1.1); }
+.streak-dots.done span { background: var(--ok-text); }
 
 /* ---------- Теми та рівень ---------- */
 .list {

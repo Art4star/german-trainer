@@ -4,6 +4,12 @@
   var CATS = ['artikel', 'praeposition', 'pronomen', 'adjektiv', 'konjunktiv'];
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
   var LEARNED_STREAK = 3; // лише для тексту в UI — реальний підрахунок робить сервер
+  var LEVELS = [
+    { name: 'Початківець', min: 0 },
+    { name: 'Досвідчений', min: 10 },
+    { name: 'Майстер', min: 50 },
+    { name: 'Експерт', min: 150 }
+  ];
   var NEW_PER_SESSION = 15;
   var MAX_PER_SESSION = 40;
 
@@ -93,7 +99,10 @@
     changeEmailBtn: document.getElementById('changeEmailBtn'),
 
     screenSelect: document.getElementById('screen-select'),
-    learnedLine: document.getElementById('learnedLine'),
+    levelName: document.getElementById('levelName'),
+    learnedCount: document.getElementById('learnedCount'),
+    levelBar: document.getElementById('levelBar'),
+    levelNext: document.getElementById('levelNext'),
     startBtn: document.getElementById('startBtn'),
     topicsBtn: document.getElementById('topicsBtn'),
     topicSummary: document.getElementById('topicSummary'),
@@ -112,12 +121,14 @@
     checkBtn: document.getElementById('checkBtn'),
     feedback: document.getElementById('feedback'),
     feedbackNote: document.getElementById('feedbackNote'),
+    streakDots: document.getElementById('streakDots'),
     translationToggle: document.getElementById('translationToggle'),
     translationText: document.getElementById('translationText'),
     quitBtn: document.getElementById('quitBtn'),
 
     screenSummary: document.getElementById('screen-summary'),
     summaryStats: document.getElementById('summaryStats'),
+    summaryPraise: document.getElementById('summaryPraise'),
     backToStart: document.getElementById('backToStart'),
 
     screenHistory: document.getElementById('screen-history'),
@@ -359,7 +370,18 @@
       var p = progressCache[ex.id];
       if (p && p.state === 'learned') learnedAll += 1;
     });
-    el.learnedLine.textContent = 'Вивчено ' + learnedAll + ' з ' + window.EXERCISES.length;
+    var level = LEVELS[0];
+    var next = null;
+    LEVELS.forEach(function (l, i) {
+      if (learnedAll >= l.min) { level = l; next = LEVELS[i + 1] || null; }
+    });
+    el.levelName.textContent = level.name;
+    el.learnedCount.textContent = learnedAll + ' вивчено';
+    var pct = next ? Math.round(((learnedAll - level.min) / (next.min - level.min)) * 100) : 100;
+    el.levelBar.style.width = pct + '%';
+    el.levelNext.textContent = next
+      ? 'Ще ' + (next.min - learnedAll) + ' до рівня «' + next.name + '»'
+      : 'Найвищий рівень. Так тримати!';
     var allCats = selection.cats.length === CATS.length;
     el.topicSummary.textContent = selectedLevelLabel() + ' · ' + (allCats ? 'усі теми' : selection.cats.length + ' тем');
     el.startBtn.disabled = exs.length === 0;
@@ -430,6 +452,8 @@
     el.answerInput.readOnly = false;
     el.feedback.hidden = true;
     el.feedback.className = 'feedback';
+    el.streakDots.hidden = true;
+    el.streakDots.className = 'streak-dots';
     el.feedbackNote.textContent = '';
     el.translationText.hidden = true;
     el.translationText.textContent = ex.tr;
@@ -471,12 +495,16 @@
 
       el.feedback.className = 'feedback ' + (isCorrect ? 'ok' : 'bad');
       if (isCorrect) {
-        el.feedback.textContent = p.state === 'learned'
-          ? '✓ Вивчено'
-          : '✓ Правильно · ' + p.streak + '/' + LEARNED_STREAK;
+        el.feedback.textContent = p.state === 'learned' ? 'Тема вивчена' : 'Правильно';
       } else {
-        el.feedback.textContent = '✗ Правильно: ' + ex.answer[0];
+        el.feedback.textContent = 'Правильно: ' + ex.answer[0];
       }
+      var dots = el.streakDots.querySelectorAll('span');
+      Array.prototype.forEach.call(dots, function (dot, i) {
+        dot.className = i < Math.min(p.streak, LEARNED_STREAK) ? 'on' : '';
+      });
+      el.streakDots.className = 'streak-dots' + (p.state === 'learned' ? ' done' : '');
+      el.streakDots.hidden = false;
       el.feedbackNote.textContent = ex.note;
       el.answerInput.className = isCorrect ? 'ok' : 'bad';
       el.checkBtn.textContent = 'Далі';
@@ -514,6 +542,9 @@
     el.summaryStats.innerHTML =
       '<div><strong>' + accuracy + '%</strong><span>точність</span></div>' +
       '<div><strong>' + session.wrong + '</strong><span>помилок</span></div>';
+    el.summaryPraise.textContent = accuracy >= 80 ? 'Чудова сесія.'
+      : accuracy >= 50 ? 'Гарний прогрес.'
+      : 'Так вчаться всі. Повернись завтра.';
     session = null;
     showScreen('summary');
     refreshStats();
