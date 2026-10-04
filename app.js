@@ -4,6 +4,8 @@
   var CATS = ['artikel', 'praeposition', 'pronomen', 'adjektiv', 'konjunktiv'];
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
   var LEARNED_STREAK = 3; // лише для тексту в UI — реальний підрахунок робить сервер
+  var NEW_PER_SESSION = 15;
+  var MAX_PER_SESSION = 40;
 
   var API_BASE = 'https://german-trainer-api.onrender.com';
   var GOOGLE_CLIENT_ID = '385497440761-7megs57d45ftrvgcik27j4md2c3lbovh.apps.googleusercontent.com';
@@ -21,9 +23,23 @@
 
   var TOKEN_KEY = 'deutsch-trainer:apiToken';
   var USER_KEY = 'deutsch-trainer:apiUser';
+  var TOPICS_KEY = 'deutsch-trainer:topics';
 
   var apiToken = localStorage.getItem(TOKEN_KEY);
   var progressCache = {}; // exerciseId -> progress-рядок із сервера
+
+  function loadSelection() {
+    try {
+      var s = JSON.parse(localStorage.getItem(TOPICS_KEY) || 'null');
+      if (s && Array.isArray(s.cats) && typeof s.level === 'string') return s;
+    } catch (e) { /* ignore */ }
+    return { cats: CATS.slice(), level: 'all' };
+  }
+  var selection = loadSelection();
+
+  function saveSelection() {
+    localStorage.setItem(TOPICS_KEY, JSON.stringify(selection));
+  }
 
   // ---------- API ----------
   function apiFetch(path, options) {
@@ -53,8 +69,11 @@
 
   // ---------- DOM ----------
   var el = {
-    userBar: document.getElementById('userBar'),
-    userBarName: document.getElementById('userBarName'),
+    menuBtn: document.getElementById('menuBtn'),
+    menuPanel: document.getElementById('menuPanel'),
+    menuUser: document.getElementById('menuUser'),
+    historyBtn: document.getElementById('historyBtn'),
+    resetBtn: document.getElementById('resetBtn'),
     switchUserBtn: document.getElementById('switchUserBtn'),
 
     screenLogin: document.getElementById('screen-login'),
@@ -73,25 +92,18 @@
     codeError: document.getElementById('codeError'),
     changeEmailBtn: document.getElementById('changeEmailBtn'),
 
-    struggleCount: document.getElementById('struggleCount'),
-    recheckCount: document.getElementById('recheckCount'),
-    newCount: document.getElementById('newCount'),
-    learnedCount: document.getElementById('learnedCount'),
-    totalCount: document.getElementById('totalCount'),
-    catChecks: document.getElementById('catChecks'),
-    levelSelect: document.getElementById('levelSelect'),
-    newPerSession: document.getElementById('newPerSession'),
-    maxSessionSize: document.getElementById('maxSessionSize'),
-    startBtn: document.getElementById('startBtn'),
-    historyBtn: document.getElementById('historyBtn'),
-    resetBtn: document.getElementById('resetBtn'),
-
     screenSelect: document.getElementById('screen-select'),
-    screenQuiz: document.getElementById('screen-quiz'),
-    screenSummary: document.getElementById('screen-summary'),
-    screenHistory: document.getElementById('screen-history'),
+    learnedLine: document.getElementById('learnedLine'),
+    startBtn: document.getElementById('startBtn'),
+    topicsBtn: document.getElementById('topicsBtn'),
+    topicSummary: document.getElementById('topicSummary'),
 
-    progressText: document.getElementById('progressText'),
+    screenTopics: document.getElementById('screen-topics'),
+    catChecks: document.getElementById('catChecks'),
+    levelSeg: document.getElementById('levelSeg'),
+    topicsBack: document.getElementById('topicsBack'),
+
+    screenQuiz: document.getElementById('screen-quiz'),
     progressBar: document.getElementById('progressBar'),
     topicLabel: document.getElementById('topicLabel'),
     sentenceBefore: document.getElementById('sentenceBefore'),
@@ -102,9 +114,13 @@
     feedbackNote: document.getElementById('feedbackNote'),
     translationToggle: document.getElementById('translationToggle'),
     translationText: document.getElementById('translationText'),
+    quitBtn: document.getElementById('quitBtn'),
+
+    screenSummary: document.getElementById('screen-summary'),
     summaryStats: document.getElementById('summaryStats'),
     backToStart: document.getElementById('backToStart'),
-    quitBtn: document.getElementById('quitBtn'),
+
+    screenHistory: document.getElementById('screen-history'),
     historySummary: document.getElementById('historySummary'),
     historyProblems: document.getElementById('historyProblems'),
     historySessions: document.getElementById('historySessions'),
@@ -118,23 +134,59 @@
     el.screenLogin.hidden = name !== 'login';
     el.screenCode.hidden = name !== 'code';
     el.screenSelect.hidden = name !== 'select';
+    el.screenTopics.hidden = name !== 'topics';
     el.screenQuiz.hidden = name !== 'quiz';
     el.screenSummary.hidden = name !== 'summary';
     el.screenHistory.hidden = name !== 'history';
-    el.userBar.hidden = name === 'login' || name === 'code';
+    var preAuth = name === 'login' || name === 'code';
+    el.menuBtn.hidden = preAuth;
+    openMenu(false);
   }
 
+  // ---------- Меню ----------
+  function openMenu(open) {
+    el.menuPanel.hidden = !open;
+    el.menuBtn.setAttribute('aria-expanded', String(open));
+  }
+
+  el.menuBtn.addEventListener('click', function () {
+    openMenu(el.menuPanel.hidden);
+  });
+  document.addEventListener('click', function (e) {
+    if (!el.menuPanel.hidden && !el.menuPanel.contains(e.target) && e.target !== el.menuBtn) openMenu(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') openMenu(false);
+  });
+
+  el.historyBtn.addEventListener('click', function () {
+    renderHistory();
+    showScreen('history');
+  });
+  el.resetBtn.addEventListener('click', function () {
+    openMenu(false);
+    if (confirm('Скинути весь твій прогрес (вивчені картки, лічильники, історію сесій)? Цю дію не можна скасувати.')) {
+      apiFetch('/api/reset', { method: 'POST', body: '{}' }).then(function () {
+        progressCache = {};
+        refreshStats();
+      }).catch(function () {
+        alert('Не вдалося скинути прогрес — перевір з’єднання із сервером.');
+      });
+    }
+  });
+  el.switchUserBtn.addEventListener('click', logout);
+
+  // ---------- Логін ----------
   function showLoginError(msg) {
     el.loginError.hidden = false;
     el.loginError.textContent = msg;
   }
 
-  // ---------- Логін (Sign in with Apple / Google) ----------
   function afterAuthSuccess(token, user) {
     apiToken = token;
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    el.userBarName.textContent = user.name || user.email || 'Користувач';
+    el.menuUser.textContent = user.name || user.email || 'Користувач';
     el.loginError.hidden = true;
     loadProgressAndEnter();
   }
@@ -143,7 +195,7 @@
     apiFetch('/api/progress').then(function (data) {
       progressCache = {};
       (data.progress || []).forEach(function (p) { progressCache[p.exercise_id] = p; });
-      buildCatChecks();
+      buildTopics();
       refreshStats();
       showScreen('select');
     }).catch(function () {
@@ -224,45 +276,65 @@
   el.sendCodeBtn.textContent = T.send;
   el.verifyCodeBtn.textContent = T.verify;
 
-  el.switchUserBtn.addEventListener('click', logout);
+  // ---------- Теми та рівень ----------
+  function selectedLevelLabel() {
+    return selection.level === 'all' ? 'усі рівні' : selection.level;
+  }
 
-  // ---------- Вибір рівня і теми ----------
-  function buildCatChecks() {
+  function buildTopics() {
     el.catChecks.innerHTML = '';
     CATS.forEach(function (cat) {
-      var label = document.createElement('label');
-      label.className = 'check';
+      var row = document.createElement('label');
+      row.className = 'list-row';
+      var name = document.createElement('span');
+      name.textContent = CAT_LABELS[cat];
       var input = document.createElement('input');
       input.type = 'checkbox';
       input.value = cat;
-      input.checked = true;
-      input.addEventListener('change', refreshStats);
-      label.appendChild(input);
-      label.appendChild(document.createTextNode(' ' + CAT_LABELS[cat]));
-      el.catChecks.appendChild(label);
+      input.checked = selection.cats.indexOf(cat) !== -1;
+      input.addEventListener('change', function () {
+        selection.cats = Array.prototype.slice.call(el.catChecks.querySelectorAll('input:checked')).map(function (i) { return i.value; });
+        saveSelection();
+        refreshStats();
+      });
+      row.appendChild(name);
+      row.appendChild(input);
+      el.catChecks.appendChild(row);
+    });
+    paintLevel();
+  }
+
+  function paintLevel() {
+    Array.prototype.forEach.call(el.levelSeg.querySelectorAll('button'), function (btn) {
+      var active = btn.getAttribute('data-level') === selection.level;
+      btn.setAttribute('aria-pressed', String(active));
     });
   }
 
-  function selectedCats() {
-    return Array.prototype.slice
-      .call(el.catChecks.querySelectorAll('input:checked'))
-      .map(function (i) { return i.value; });
-  }
+  el.levelSeg.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-level]');
+    if (!btn) return;
+    selection.level = btn.getAttribute('data-level');
+    saveSelection();
+    paintLevel();
+    refreshStats();
+  });
+
+  el.topicsBtn.addEventListener('click', function () { showScreen('topics'); });
+  el.topicsBack.addEventListener('click', function () { showScreen('select'); refreshStats(); });
 
   function filteredExercises() {
-    var cats = selectedCats();
-    var level = el.levelSelect.value;
     return window.EXERCISES.filter(function (ex) {
-      if (cats.indexOf(ex.cat) === -1) return false;
-      if (level !== 'all' && ex.level !== level) return false;
+      if (selection.cats.indexOf(ex.cat) === -1) return false;
+      if (selection.level !== 'all' && ex.level !== selection.level) return false;
       return true;
     });
   }
 
   // Розкладає вправи на 4 черги за пріоритетом показу:
-  // 1) struggling — активно вивчається, остання відповідь невірна (показувати найчастіше)
-  // 2) recheck    — вже "вивчено", але настав час періодичної перевірки
-  // 3) inProgress — активно вивчається, остання відповідь вірна (streak 1-2)
+  // 1) struggling — активно вивчається, остання відповідь невірна
+  // 2) recheck    — вже "вивчено", але настав час перевірки
+  // 3) inProgress — активно вивчається, остання відповідь вірна
   // 4) fresh      — ще жодної спроби не було
   function classify(exs) {
     var today = todayStr();
@@ -282,17 +354,14 @@
 
   function refreshStats() {
     var exs = filteredExercises();
-    var buckets = classify(exs);
-    var learned = 0;
-    exs.forEach(function (ex) {
+    var learnedAll = 0;
+    window.EXERCISES.forEach(function (ex) {
       var p = progressCache[ex.id];
-      if (p && p.state === 'learned') learned += 1;
+      if (p && p.state === 'learned') learnedAll += 1;
     });
-    el.struggleCount.textContent = buckets.struggling.length;
-    el.recheckCount.textContent = buckets.recheck.length;
-    el.newCount.textContent = buckets.fresh.length;
-    el.learnedCount.textContent = learned;
-    el.totalCount.textContent = exs.length;
+    el.learnedLine.textContent = 'Вивчено ' + learnedAll + ' з ' + window.EXERCISES.length;
+    var allCats = selection.cats.length === CATS.length;
+    el.topicSummary.textContent = selectedLevelLabel() + ' · ' + (allCats ? 'усі теми' : selection.cats.length + ' тем');
     el.startBtn.disabled = exs.length === 0;
   }
 
@@ -306,23 +375,18 @@
 
   // ---------- Вивчення ----------
   function startSession() {
-    var exs = filteredExercises();
-    var buckets = classify(exs);
+    var buckets = classify(filteredExercises());
     shuffle(buckets.struggling);
     shuffle(buckets.recheck);
     shuffle(buckets.inProgress);
     shuffle(buckets.fresh);
 
-    var newLimit = Math.max(0, parseInt(el.newPerSession.value, 10) || 0);
-    var freshSlice = buckets.fresh.slice(0, newLimit);
-
+    var freshSlice = buckets.fresh.slice(0, NEW_PER_SESSION);
     var queue = buckets.struggling.concat(buckets.recheck, buckets.inProgress, freshSlice);
-
-    var maxSize = Math.max(0, parseInt(el.maxSessionSize.value, 10) || 0);
-    if (maxSize > 0 && queue.length > maxSize) queue = queue.slice(0, maxSize);
+    if (queue.length > MAX_PER_SESSION) queue = queue.slice(0, MAX_PER_SESSION);
 
     if (queue.length === 0) {
-      alert('Немає карток для повторення прямо зараз. Спробуй додати нові картки за сесію або зачекати до наступної перевірки.');
+      alert('Немає карток для повторення. Обери інші теми або зачекай до наступної перевірки.');
       return;
     }
 
@@ -337,6 +401,8 @@
       el.startBtn.disabled = false;
     });
   }
+
+  el.startBtn.addEventListener('click', startSession);
 
   function currentExerciseId() {
     return session.queue[session.pointer];
@@ -364,14 +430,14 @@
     el.answerInput.readOnly = false;
     el.feedback.hidden = true;
     el.feedback.className = 'feedback';
+    el.feedbackNote.textContent = '';
     el.translationText.hidden = true;
     el.translationText.textContent = ex.tr;
     el.checkBtn.textContent = 'Перевірити';
     el.checkBtn.disabled = false;
 
-    el.progressText.textContent = 'Переглянуто: ' + session.reviewed + ' · Залишилось: ' + (session.queue.length - session.pointer);
-    var pct = session.queue.length ? Math.round((session.reviewed / (session.reviewed + (session.queue.length - session.pointer))) * 100) : 0;
-    el.progressBar.style.width = pct + '%';
+    var total = session.queue.length;
+    el.progressBar.style.width = Math.round((session.pointer / total) * 100) + '%';
 
     el.answerInput.focus();
   }
@@ -406,14 +472,14 @@
       el.feedback.className = 'feedback ' + (isCorrect ? 'ok' : 'bad');
       if (isCorrect) {
         el.feedback.textContent = p.state === 'learned'
-          ? '✓ Правильно! Ця тема вивчена 🎉'
-          : '✓ Правильно! (' + p.streak + '/' + LEARNED_STREAK + ' поспіль)';
+          ? '✓ Вивчено'
+          : '✓ Правильно · ' + p.streak + '/' + LEARNED_STREAK;
       } else {
-        el.feedback.textContent = '✗ Правильна відповідь: ' + ex.answer[0];
+        el.feedback.textContent = '✗ Правильно: ' + ex.answer[0];
       }
       el.feedbackNote.textContent = ex.note;
       el.answerInput.className = isCorrect ? 'ok' : 'bad';
-      el.checkBtn.textContent = 'Далі →';
+      el.checkBtn.textContent = 'Далі';
       el.checkBtn.disabled = false;
       session.mode = 'next';
       el.answerInput.focus();
@@ -423,11 +489,9 @@
         var pos = Math.min(reinsertAt, session.queue.length);
         session.queue.splice(pos, 0, ex.id);
       }
-
-      refreshStats();
     }).catch(function () {
       el.feedback.className = 'feedback bad';
-      el.feedback.textContent = 'Помилка з’єднання із сервером. Спробуй перевірити ще раз.';
+      el.feedback.textContent = 'Помилка з’єднання. Спробуй ще раз.';
       el.answerInput.readOnly = false;
       el.checkBtn.disabled = false;
       session.mode = 'check';
@@ -448,13 +512,33 @@
     }).catch(function () { /* незавершена сесія лишиться в історії без ended_at — не критично */ });
 
     el.summaryStats.innerHTML =
-      '<div><strong>' + session.reviewed + '</strong><span>переглянуто карток</span></div>' +
       '<div><strong>' + accuracy + '%</strong><span>точність</span></div>' +
       '<div><strong>' + session.wrong + '</strong><span>помилок</span></div>';
     session = null;
     showScreen('summary');
     refreshStats();
   }
+
+  el.checkBtn.addEventListener('click', function () {
+    if (session.mode === 'check') checkAnswer();
+    else if (session.mode === 'next') nextCard();
+  });
+  el.answerInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (session.mode === 'check') checkAnswer();
+      else if (session.mode === 'next') nextCard();
+    }
+  });
+  el.translationToggle.addEventListener('click', function () {
+    el.translationText.hidden = !el.translationText.hidden;
+  });
+  el.backToStart.addEventListener('click', function () { showScreen('select'); refreshStats(); });
+  el.quitBtn.addEventListener('click', function () {
+    if (confirm('Завершити сесію? Прогрес по вже відповіданих картках збережеться.')) {
+      endSession();
+    }
+  });
 
   // ---------- Історія ----------
   function renderHistory() {
@@ -471,22 +555,18 @@
         var p = progressCache[ex.id];
         return p && p.state === 'learned';
       }).length;
-      el.historySummary.textContent =
-        'Вивчено ' + learnedTotal + ' із ' + window.EXERCISES.length + ' вправ · Проведено сесій: ' + sessions.length;
+      el.historySummary.textContent = 'Вивчено ' + learnedTotal + ' з ' + window.EXERCISES.length + ' · сесій: ' + sessions.length;
 
-      var withProgress = window.EXERCISES
+      var problems = window.EXERCISES
         .map(function (ex) { var p = progressCache[ex.id]; return p ? { ex: ex, p: p } : null; })
-        .filter(Boolean);
-
-      var problems = withProgress
-        .filter(function (item) { return item.p.total_wrong > 0 && item.p.state !== 'learned'; })
+        .filter(function (item) { return item && item.p.total_wrong > 0 && item.p.state !== 'learned'; })
         .sort(function (a, b) { return b.p.total_wrong - a.p.total_wrong; })
         .slice(0, 12);
 
       el.historyProblems.innerHTML = problems.length
         ? problems.map(function (item) {
             return '<div class="problem-row"><span>' + CAT_LABELS[item.ex.cat] + ' · ' + item.ex.topic +
-              '</span><span class="problem-count">' + item.p.total_wrong + ' пом. · streak ' + item.p.streak + '/' + LEARNED_STREAK + '</span></div>';
+              '</span><span class="problem-count">' + item.p.total_wrong + ' пом.</span></div>';
           }).join('')
         : '<p class="muted">Проблемних тем поки немає.</p>';
 
@@ -509,56 +589,17 @@
     });
   }
 
-  // ---------- Events ----------
-  el.startBtn.addEventListener('click', startSession);
-  el.levelSelect.addEventListener('change', refreshStats);
-  el.newPerSession.addEventListener('change', refreshStats);
-  el.maxSessionSize.addEventListener('change', refreshStats);
-
-  el.checkBtn.addEventListener('click', function () {
-    if (session.mode === 'check') checkAnswer();
-    else if (session.mode === 'next') nextCard();
-  });
-  el.answerInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (session.mode === 'check') checkAnswer();
-      else if (session.mode === 'next') nextCard();
-    }
-  });
-  el.translationToggle.addEventListener('click', function () {
-    el.translationText.hidden = !el.translationText.hidden;
-  });
-  el.backToStart.addEventListener('click', function () { showScreen('select'); refreshStats(); });
-  el.quitBtn.addEventListener('click', function () {
-    if (confirm('Завершити сесію достроково? Прогрес по вже відповіданих картках збережеться.')) {
-      endSession();
-    }
-  });
-  el.historyBtn.addEventListener('click', function () {
-    renderHistory();
-    showScreen('history');
-  });
   el.historyBack.addEventListener('click', function () { showScreen('select'); refreshStats(); });
-  el.resetBtn.addEventListener('click', function () {
-    if (confirm('Скинути весь твій прогрес (вивчені картки, лічильники, історію сесій)? Цю дію не можна скасувати.')) {
-      apiFetch('/api/reset', { method: 'POST', body: '{}' }).then(function () {
-        progressCache = {};
-        refreshStats();
-      }).catch(function () {
-        alert('Не вдалося скинути прогрес — перевір з’єднання із сервером.');
-      });
-    }
-  });
 
   // ---------- Init ----------
+  el.orText.textContent = T.or;
   // SDK Google підключається асинхронно — ініціалізуємо після події load
   window.addEventListener('load', initGoogleSignIn);
 
   var savedUser = null;
   try { savedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { /* ignore */ }
   if (apiToken && savedUser) {
-    el.userBarName.textContent = savedUser.name || savedUser.email || 'Користувач';
+    el.menuUser.textContent = savedUser.name || savedUser.email || 'Користувач';
     loadProgressAndEnter();
   } else {
     showScreen('login');

@@ -17,11 +17,15 @@
 <body>
   <header class="app-header">
     <h1>Deutsch Trainer</h1>
-    <div id="userBar" class="user-bar" hidden>
-      <span>Користувач: <strong id="userBarName"></strong></span>
-      <button id="switchUserBtn" class="linklike">змінити користувача</button>
-    </div>
+    <button id="menuBtn" class="menu-btn" type="button" aria-label="Меню" aria-expanded="false" hidden>☰</button>
   </header>
+
+  <nav id="menuPanel" class="menu-panel" hidden>
+    <div id="menuUser" class="menu-user"></div>
+    <button id="historyBtn" class="menu-item" type="button">Історія</button>
+    <button id="resetBtn" class="menu-item" type="button">Скинути прогрес</button>
+    <button id="switchUserBtn" class="menu-item" type="button">Змінити користувача</button>
+  </nav>
 
   <main class="app-main">
 
@@ -51,49 +55,26 @@
     </section>
 
     <section id="screen-select" class="screen" hidden>
-      <div class="stats-row">
-        <div class="stat"><strong id="struggleCount">0</strong><span>проблемні</span></div>
-        <div class="stat"><strong id="recheckCount">0</strong><span>на перевірку</span></div>
-        <div class="stat"><strong id="newCount">0</strong><span>нові</span></div>
-        <div class="stat"><strong id="learnedCount">0</strong><span>вивчено</span></div>
-        <div class="stat"><strong id="totalCount">0</strong><span>всього у виборі</span></div>
-      </div>
+      <p id="learnedLine" class="learned-line"></p>
+      <button id="startBtn" class="btn primary big" type="button">Почати</button>
+      <button id="topicsBtn" class="btn ghost" type="button">Теми та рівень: <span id="topicSummary"></span></button>
+    </section>
 
-      <div class="panel">
-        <div class="field">
-          <span class="field-label">Категорії</span>
-          <div id="catChecks" class="checks"></div>
-        </div>
-        <div class="field">
-          <label class="field-label" for="levelSelect">Рівень</label>
-          <select id="levelSelect">
-            <option value="all">Усі рівні</option>
-            <option value="A2">A2</option>
-            <option value="B1">B1</option>
-            <option value="B2">B2</option>
-            <option value="C1">C1</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="field-label" for="newPerSession">Нових карток за сесію</label>
-          <input id="newPerSession" type="number" min="0" max="50" value="15" />
-        </div>
-        <div class="field">
-          <label class="field-label" for="maxSessionSize">Максимум карток за сесію (0 = без обмежень)</label>
-          <input id="maxSessionSize" type="number" min="0" max="200" value="40" />
-        </div>
+    <section id="screen-topics" class="screen" hidden>
+      <h2>Теми та рівень</h2>
+      <div id="catChecks" class="list"></div>
+      <div id="levelSeg" class="segmented" role="group" aria-label="Рівень">
+        <button type="button" data-level="all">Усі</button>
+        <button type="button" data-level="A2">A2</button>
+        <button type="button" data-level="B1">B1</button>
+        <button type="button" data-level="B2">B2</button>
+        <button type="button" data-level="C1">C1</button>
       </div>
-
-      <button id="startBtn" class="btn primary big">Почати сесію</button>
-      <button id="historyBtn" class="btn ghost small">Історія та статистика</button>
-      <button id="resetBtn" class="btn ghost small">Скинути весь прогрес</button>
+      <button id="topicsBack" class="btn primary big" type="button">Готово</button>
     </section>
 
     <section id="screen-quiz" class="screen" hidden>
-      <div class="progress-wrap">
-        <div class="progress-text" id="progressText"></div>
-        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
-      </div>
+      <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
 
       <div class="card">
         <div class="topic-label" id="topicLabel"></div>
@@ -103,30 +84,30 @@
           <span id="sentenceAfter"></span>
         </div>
 
-        <button id="translationToggle" class="btn ghost small">Показати переклад</button>
+        <button id="translationToggle" class="btn ghost small" type="button">Переклад</button>
         <div id="translationText" class="translation" hidden></div>
 
         <div id="feedback" class="feedback" hidden></div>
         <div id="feedbackNote" class="feedback-note"></div>
 
-        <button id="checkBtn" class="btn primary big">Перевірити</button>
+        <button id="checkBtn" class="btn primary big" type="button">Перевірити</button>
       </div>
 
-      <button id="quitBtn" class="btn ghost small">Завершити сесію</button>
+      <button id="quitBtn" class="btn ghost small" type="button">Завершити</button>
     </section>
 
     <section id="screen-summary" class="screen" hidden>
       <h2>Сесію завершено</h2>
       <div id="summaryStats" class="summary-stats"></div>
-      <button id="backToStart" class="btn primary big">До початку</button>
+      <button id="backToStart" class="btn primary big" type="button">До початку</button>
     </section>
 
     <section id="screen-history" class="screen" hidden>
-      <h2>Історія та статистика</h2>
+      <h2>Історія</h2>
       <p id="historySummary" class="muted"></p>
 
       <div class="panel">
-        <span class="field-label">Проблемні теми (найбільше помилок)</span>
+        <span class="field-label">Проблемні теми</span>
         <div id="historyProblems"></div>
       </div>
 
@@ -135,13 +116,12 @@
         <div id="historySessions"></div>
       </div>
 
-      <button id="historyBack" class="btn primary big">До початку</button>
+      <button id="historyBack" class="btn primary big" type="button">До початку</button>
     </section>
 
   </main>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
 
   <script src="data.js"></script>
   <script src="app.js"></script>
