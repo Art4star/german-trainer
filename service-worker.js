@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'deutsch-trainer-v2';
+var CACHE_NAME = 'deutsch-trainer-v3';
 var ASSETS = [
   './',
   './index.html',
