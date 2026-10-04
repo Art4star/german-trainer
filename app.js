@@ -10,6 +10,12 @@
   var GOOGLE_CLIENT_ID = '385497440761-7megs57d45ftrvgcik27j4md2c3lbovh.apps.googleusercontent.com';
   var APPLE_CLIENT_ID = 'REPLACE_WITH_APPLE_SERVICES_ID';
 
+  var SUPPORTED_LANGS = ['uk', 'de', 'en'];
+  var UI_LANG = (SUPPORTED_LANGS.indexOf((navigator.language || '').slice(0, 2).toLowerCase()) >= 0)
+    ? navigator.language.slice(0, 2).toLowerCase()
+    : 'en';
+  var APPLE_BUTTON_TEXT = { uk: 'Увійти через Apple', de: 'Mit Apple anmelden', en: 'Sign in with Apple' };
+
   var TOKEN_KEY = 'deutsch-trainer:apiToken';
   var USER_KEY = 'deutsch-trainer:apiUser';
 
@@ -149,7 +155,7 @@
           .catch(function () { showLoginError('Не вдалося увійти через Google.'); });
       }
     });
-    google.accounts.id.renderButton(el.googleSignInBtn, { theme: 'outline', size: 'large', width: 280 });
+    google.accounts.id.renderButton(el.googleSignInBtn, { theme: 'outline', size: 'large', width: 280, locale: UI_LANG });
   }
 
   function initAppleSignIn() {
@@ -510,6 +516,8 @@
   });
 
   // ---------- Init ----------
+  el.appleSignInBtn.textContent = APPLE_BUTTON_TEXT[UI_LANG];
+
   // SDK Google/Apple підключаються асинхронно — ініціалізуємо після події load
   window.addEventListener('load', function () {
     initGoogleSignIn();
