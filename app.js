@@ -21,14 +21,15 @@
     ? navigator.language.slice(0, 2).toLowerCase()
     : 'en';
   var LOGIN_TEXT = {
-    uk: { or: 'або', send: 'Надіслати код', verify: 'Увійти', codeHint: 'Ми надіслали 6-значний код на {email}. Він дійсний 10 хвилин.', codePlaceholder: '6 цифр', error: 'Не вдалося увійти. Перевір дані й спробуй ще раз.', wait: 'Код уже надіслано. Зачекай хвилину перед повторним запитом.', badCode: 'Невірний або прострочений код. Запроси новий.', badEmail: 'Перевір адресу електронної пошти.' },
-    de: { or: 'oder', send: 'Code senden', verify: 'Anmelden', codeHint: 'Wir haben einen 6-stelligen Code an {email} gesendet. Er ist 10 Minuten gültig.', codePlaceholder: '6 Ziffern', error: 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.', wait: 'Der Code wurde bereits gesendet. Bitte warte eine Minute.', badCode: 'Falscher oder abgelaufener Code. Fordere einen neuen an.', badEmail: 'Bitte prüfe die E-Mail-Adresse.' },
-    en: { or: 'or', send: 'Send code', verify: 'Sign in', codeHint: 'We sent a 6-digit code to {email}. It is valid for 10 minutes.', codePlaceholder: '6 digits', error: 'Sign-in failed. Please check your details and try again.', wait: 'A code was already sent. Please wait a minute before requesting another.', badCode: 'Wrong or expired code. Request a new one.', badEmail: 'Please check the email address.' }
+    uk: { or: 'або', send: 'Надіслати код', verify: 'Увійти', codeHint: 'Ми надіслали 6-значний код на {email}. Він дійсний 10 хвилин.', codePlaceholder: '6 цифр', error: 'Не вдалося увійти. Перевір дані й спробуй ще раз.', wait: 'Код уже надіслано. Зачекай хвилину перед повторним запитом.', badCode: 'Невірний або прострочений код. Запроси новий.', badEmail: 'Перевір адресу електронної пошти.', expired: 'Сесія закінчилась. Увійди знову.', offline: 'Немає зв’язку з сервером. Онови сторінку, коли інтернет буде.', offlineNote: 'Немає зв’язку. Показано останні дані.' },
+    de: { or: 'oder', send: 'Code senden', verify: 'Anmelden', codeHint: 'Wir haben einen 6-stelligen Code an {email} gesendet. Er ist 10 Minuten gültig.', codePlaceholder: '6 Ziffern', error: 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.', wait: 'Der Code wurde bereits gesendet. Bitte warte eine Minute.', badCode: 'Falscher oder abgelaufener Code. Fordere einen neuen an.', badEmail: 'Bitte prüfe die E-Mail-Adresse.', expired: 'Sitzung abgelaufen. Bitte melde dich erneut an.', offline: 'Keine Verbindung zum Server. Lade die Seite neu, sobald du online bist.', offlineNote: 'Keine Verbindung. Letzte Daten werden angezeigt.' },
+    en: { or: 'or', send: 'Send code', verify: 'Sign in', codeHint: 'We sent a 6-digit code to {email}. It is valid for 10 minutes.', codePlaceholder: '6 digits', error: 'Sign-in failed. Please check your details and try again.', wait: 'A code was already sent. Please wait a minute before requesting another.', badCode: 'Wrong or expired code. Request a new one.', badEmail: 'Please check the email address.', expired: 'Your session expired. Please sign in again.', offline: 'No connection to the server. Reload the page once you are online.', offlineNote: 'No connection. Showing your last data.' }
   };
   var T = LOGIN_TEXT[UI_LANG];
 
   var TOKEN_KEY = 'deutsch-trainer:apiToken';
   var USER_KEY = 'deutsch-trainer:apiUser';
+  var PROGRESS_KEY = 'deutsch-trainer:progressCache';
   var TOPICS_KEY = 'deutsch-trainer:topics';
 
   var apiToken = localStorage.getItem(TOKEN_KEY);
@@ -103,6 +104,7 @@
     learnedCount: document.getElementById('learnedCount'),
     levelBar: document.getElementById('levelBar'),
     levelNext: document.getElementById('levelNext'),
+    offlineNote: document.getElementById('offlineNote'),
     startBtn: document.getElementById('startBtn'),
     topicsBtn: document.getElementById('topicsBtn'),
     topicSummary: document.getElementById('topicSummary'),
@@ -202,17 +204,47 @@
     loadProgressAndEnter();
   }
 
-  function loadProgressAndEnter() {
+  function saveProgressCache() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressCache)); } catch (e) { /* переповнення сховища — не критично */ }
+  }
+
+  function readProgressCache() {
+    try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null'); } catch (e) { return null; }
+  }
+
+  function enterSelect(offline) {
+    buildTopics();
+    refreshStats();
+    el.offlineNote.textContent = T.offlineNote;
+    el.offlineNote.hidden = !offline;
+    showScreen('select');
+  }
+
+  // Вилогінюємо лише коли сервер відхилив токен (401). Інші збої не стирають сесію.
+  function loadProgressAndEnter(attempt) {
+    attempt = attempt || 1;
     apiFetch('/api/progress').then(function (data) {
       progressCache = {};
       (data.progress || []).forEach(function (p) { progressCache[p.exercise_id] = p; });
-    }).then(function () {
-      buildTopics();
-      refreshStats();
-      showScreen('select');
-    }, function () {
-      showLoginError('Не вдалося завантажити прогрес із сервера. Перевір з’єднання й спробуй увійти ще раз.');
-      logout();
+      saveProgressCache();
+      enterSelect(false);
+    }, function (err) {
+      if (err.status === 401) {
+        logout();
+        showLoginError(T.expired);
+        return;
+      }
+      if (attempt < 2) {
+        setTimeout(function () { loadProgressAndEnter(attempt + 1); }, 4000);
+        return;
+      }
+      var cached = readProgressCache();
+      if (cached) {
+        progressCache = cached;
+        enterSelect(true);
+        return;
+      }
+      showLoginError(T.offline);
     });
   }
 
@@ -221,6 +253,7 @@
     progressCache = {};
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PROGRESS_KEY);
     showScreen('login');
   }
 
@@ -491,6 +524,7 @@
     }).then(function (data) {
       var p = data.progress;
       progressCache[ex.id] = p;
+      saveProgressCache();
       session.reviewed += 1;
       if (isCorrect) session.correct += 1; else session.wrong += 1;
 
