@@ -2,6 +2,7 @@
   'use strict';
 
   var CATS = ['artikel', 'praeposition', 'pronomen', 'adjektiv', 'konjunktiv'];
+  var ALL_LEVELS = ['A2', 'B1', 'B2', 'C1'];
   var CAT_LABELS = { artikel: 'Artikel', praeposition: 'Präpositionen', pronomen: 'Pronomen', adjektiv: 'Adjektivendungen', konjunktiv: 'Konjunktiv' };
   var LEARNED_STREAK = 3; // лише для тексту в UI — реальний підрахунок робить сервер
   var LEVELS = [
@@ -38,9 +39,14 @@
   function loadSelection() {
     try {
       var s = JSON.parse(localStorage.getItem(TOPICS_KEY) || 'null');
-      if (s && Array.isArray(s.cats) && typeof s.level === 'string') return s;
+      if (s && Array.isArray(s.cats)) {
+        var levels = Array.isArray(s.levels) ? s.levels
+          : (typeof s.level === 'string' && s.level !== 'all' ? [s.level] : ALL_LEVELS);
+        levels = levels.filter(function (l) { return ALL_LEVELS.indexOf(l) !== -1; });
+        if (levels.length) return { cats: s.cats, levels: levels };
+      }
     } catch (e) { /* ignore */ }
-    return { cats: CATS.slice(), level: 'all' };
+    return { cats: CATS.slice(), levels: ALL_LEVELS.slice() };
   }
   var selection = loadSelection();
 
@@ -323,7 +329,7 @@
 
   // ---------- Теми та рівень ----------
   function selectedLevelLabel() {
-    return selection.level === 'all' ? 'усі рівні' : selection.level;
+    return selection.levels.length === ALL_LEVELS.length ? 'усі рівні' : selection.levels.join(' + ');
   }
 
   function buildTopics() {
@@ -351,7 +357,10 @@
 
   function paintLevel() {
     Array.prototype.forEach.call(el.levelSeg.querySelectorAll('button'), function (btn) {
-      var active = btn.getAttribute('data-level') === selection.level;
+      var key = btn.getAttribute('data-level');
+      var active = key === 'all'
+        ? selection.levels.length === ALL_LEVELS.length
+        : selection.levels.indexOf(key) !== -1;
       btn.setAttribute('aria-pressed', String(active));
     });
   }
@@ -359,7 +368,19 @@
   el.levelSeg.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-level]');
     if (!btn) return;
-    selection.level = btn.getAttribute('data-level');
+    var key = btn.getAttribute('data-level');
+    if (key === 'all') {
+      selection.levels = ALL_LEVELS.slice();
+    } else {
+      var idx = selection.levels.indexOf(key);
+      if (idx !== -1) {
+        if (selection.levels.length === 1) return; // завжди лишається хоча б один рівень
+        selection.levels.splice(idx, 1);
+      } else {
+        selection.levels.push(key);
+        selection.levels.sort(function (a, b) { return ALL_LEVELS.indexOf(a) - ALL_LEVELS.indexOf(b); });
+      }
+    }
     saveSelection();
     paintLevel();
     refreshStats();
@@ -371,7 +392,7 @@
   function filteredExercises() {
     return window.EXERCISES.filter(function (ex) {
       if (selection.cats.indexOf(ex.cat) === -1) return false;
-      if (selection.level !== 'all' && ex.level !== selection.level) return false;
+      if (selection.levels.indexOf(ex.level) === -1) return false;
       return true;
     });
   }
