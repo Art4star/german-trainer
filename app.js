@@ -43,10 +43,13 @@
         var levels = Array.isArray(s.levels) ? s.levels
           : (typeof s.level === 'string' && s.level !== 'all' ? [s.level] : ALL_LEVELS);
         levels = levels.filter(function (l) { return ALL_LEVELS.indexOf(l) !== -1; });
-        if (levels.length) return { cats: s.cats, levels: levels };
+        if (levels.length) {
+          var last = ALL_LEVELS.indexOf(s.last) !== -1 && levels.indexOf(s.last) !== -1 ? s.last : levels[levels.length - 1];
+          return { cats: s.cats, levels: levels, last: last };
+        }
       }
     } catch (e) { /* ignore */ }
-    return { cats: CATS.slice(), levels: ALL_LEVELS.slice() };
+    return { cats: CATS.slice(), levels: ALL_LEVELS.slice(), last: ALL_LEVELS[ALL_LEVELS.length - 1] };
   }
   var selection = loadSelection();
 
@@ -370,15 +373,21 @@
     if (!btn) return;
     var key = btn.getAttribute('data-level');
     if (key === 'all') {
-      selection.levels = ALL_LEVELS.slice();
+      if (selection.levels.length === ALL_LEVELS.length) {
+        selection.levels = [selection.last];
+      } else {
+        selection.levels = ALL_LEVELS.slice();
+      }
     } else {
       var idx = selection.levels.indexOf(key);
       if (idx !== -1) {
         if (selection.levels.length === 1) return; // завжди лишається хоча б один рівень
         selection.levels.splice(idx, 1);
+        if (selection.last === key) selection.last = selection.levels[selection.levels.length - 1];
       } else {
         selection.levels.push(key);
         selection.levels.sort(function (a, b) { return ALL_LEVELS.indexOf(a) - ALL_LEVELS.indexOf(b); });
+        selection.last = key;
       }
     }
     saveSelection();
